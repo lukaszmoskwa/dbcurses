@@ -6,7 +6,7 @@ The reason why I decided to create my own version of the application is the need
 However, this project has far less functionality than sqlcrush for the time being and is only used to display data in the database. **Actually, only MySQL is supported.**
 
 
-![screen](./screenshot.png)
+![screen](https://raw.githubusercontent.com/Lykos94/dbcurses/master/screenshot.png)
 
 
 ### Install

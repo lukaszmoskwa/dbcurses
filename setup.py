@@ -14,6 +14,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Lykos94/dbcurses",
     packages=[
+        "dbcurses_modules"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
