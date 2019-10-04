@@ -1,0 +1,159 @@
+#!/usr/bin/env python3 
+
+
+import os
+import sys
+import curses
+import time
+import dbcurses_modules.data_window
+import dbcurses_modules.connector
+from dbcurses_modules.space_tab import showMainTabDialog
+
+
+class MainWindow:
+
+    _database = ''
+    _user = ''
+    _password = ''
+    _host = 'localhost'
+    _port = 3306
+    data_window = None
+
+
+    def __init__(self):
+        print('Trying to connect...')
+
+        self.create()
+        self.data_window = dbcurses_modules.data_window.DataWindow(self)
+        self.parse_args()
+        time.sleep(0.5)
+        self.for_loop()
+
+    def create(self):
+        self.win = curses.initscr()
+        curses.noecho()
+        curses.cbreak()
+        curses.curs_set(0)
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_CYAN)
+        self.win.keypad(1)
+        self.draw()
+
+    def draw(self):
+        self.win.clear()
+        self.height, self.width = self.win.getmaxyx()
+        self.win.box()
+        self.win.addstr(0, 0, " " * self.width, curses.A_REVERSE)
+        self.win.addstr(self.height - 1, 0, " " *
+                        (self.width - 1), curses.A_REVERSE)
+        self.win.addstr(0, 2, " Database: " + self._database, curses.A_REVERSE)
+        self.win.refresh()
+
+    def run_connector(self):
+        self.connector = dbcurses_modules.connector.Connector(
+            self._database, self._user, self._password, self._host, self._port)
+        self.table_list = self.connector.show_tables()
+        self.display_table(self.table_list[0])
+
+    def display_table(self, string):
+        if not self.data_window:
+            return
+        self.data_window.table_name = string
+        self.data_window.left = 0
+        self.data_window.current = 0
+        self.data_window.row_list = self.connector.select_all_from(string)
+        self.data_window.col_list = self.connector.get_all_columns(string)
+        self.data_window.redraw()
+
+    def save_to_file(self):
+        with open(os.environ['HOME'] + '/.dbcursesrc', 'w+') as fp:
+            for el in [self._database, self._user, self._password, self._host, self._port]:
+                fp.write(str(el) + '\n')
+
+    def import_from_file(self):
+        file_path = os.environ['HOME'] + '/.dbcursesrc'
+        if (os.path.isfile(file_path)):
+            with open(file_path, 'r') as fp:
+                [self._database, self._user, self._password, self._host, self._port] = map(
+                    lambda x: x.replace("\n", ""), fp.readlines())
+                self._port = int(self._port)
+        else:
+            print(
+                "Provide connection parameters or a .dbcursesrc file in " + os.environ['HOME'])
+            quit()
+
+    def parse_args(self):
+        '''
+        -d database -u user -pd password -h host -port
+        '''
+        arg_list = sys.argv[1:]
+        if (len(arg_list) == 0):
+            self.import_from_file()
+            self.run_connector()
+            return
+        try:
+            # TODO Could be do in a cleaner way
+            for (index, param) in enumerate(arg_list):
+                if (param == '-d'):
+                    self._database = arg_list[index + 1]
+                elif (param == '-u'):
+                    self._user = arg_list[index + 1]
+                elif (param == '-pd'):
+                    self._password = arg_list[index + 1]
+                elif (param == '-p'):
+                    self._port = arg_list[index + 1]
+                elif (param == '-h'):
+                    self._host = arg_list[index + 1]
+                elif (param == '--save'):
+                    self.save_to_file()
+            self.run_connector()
+        except IndexError:
+            print('Parameters format wrong, please refer to the documentation.')
+            quit(1)
+
+    def close(self, err_string=""):
+        curses.nocbreak()
+        curses.echo()
+        curses.curs_set(1)
+        curses.endwin()
+        if err_string != "":
+            print(err_string)
+        quit()
+
+    def resize(self):
+        self.data_window.left = 0
+        self.draw()
+        self.data_window.redraw()
+
+    def for_loop(self):
+
+        self.win.keypad(True)
+        while True:
+            key = self.win.getch()
+            if key == curses.KEY_RESIZE:
+                self.resize()
+            if key == ord('q'):
+                self.close()
+                break
+            elif key == ord('k') or key == 259:
+                self.data_window.scroll(-1)
+            elif key == ord('j') or key == 258:
+                self.data_window.scroll(1)
+            elif key == ord('l') or key == 261:
+                self.data_window.swipe(1)
+            elif key == ord('h') or key == 260:
+                self.data_window.swipe(-1)
+            elif key == 32:
+                showMainTabDialog(self.table_list, main_window=self, )
+                self.win.refresh()
+            elif key == ord('+'):
+                self.data_window.column_resize(+1)
+                self.data_window.redraw()
+            elif key == ord('-'):
+                self.data_window.column_resize(-1)
+                self.data_window.redraw()
+
+
+if __name__ == '__main__':
+    MainWindow()
